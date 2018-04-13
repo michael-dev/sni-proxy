@@ -509,7 +509,7 @@ bool
 start_listen(struct ev_loop *loop, int port, const ucl_object_t *backends)
 {
 	struct addrinfo ai, *res, *cur_ai;
-	int sock, r;
+	int sock, r, i;
 	ev_io *watcher;
 	bool ret = false;
 
@@ -523,23 +523,27 @@ start_listen(struct ev_loop *loop, int port, const ucl_object_t *backends)
 		return false;
 	}
 
-	cur_ai = res;
+	for (i = 0; i < 2; i++) {
+		for (cur_ai = res; cur_ai != NULL; cur_ai = cur_ai->ai_next) {
+			/* try IPv6 first */
+			if (i == 0 && cur_ai->ai_family != AF_INET6) continue;
+			if (i == 1 && cur_ai->ai_family == AF_INET6) continue;
 
-	while (cur_ai != NULL) {
-		sock = listen_on(cur_ai->ai_addr, cur_ai->ai_addrlen);
-
-		if (sock == -1) {
-			fprintf(stderr, "socket listen: %s\n", strerror(errno));
-			cur_ai = cur_ai->ai_next;
-			continue;
+			sock = listen_on(cur_ai->ai_addr, cur_ai->ai_addrlen);
+	
+			if (sock == -1) {
+				fprintf(stderr, "socket listen: %s\n", strerror(errno));
+				continue;
+			}
+	
+			watcher = xmalloc0(sizeof(*watcher));
+			watcher->data = (void *)backends;
+			ev_io_init(watcher, accept_cb, sock, EV_READ);
+			ev_io_start(loop, watcher);
+			ret = true;
 		}
 
-		watcher = xmalloc0(sizeof(*watcher));
-		watcher->data = (void *)backends;
-		ev_io_init(watcher, accept_cb, sock, EV_READ);
-		ev_io_start(loop, watcher);
-		ret = true;
-		cur_ai = cur_ai->ai_next;
+		if (ret) break;
 	}
 
 	return ret;
