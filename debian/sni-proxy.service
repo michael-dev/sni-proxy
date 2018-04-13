@@ -1,0 +1,12 @@
+[Unit]
+Description=sni-proxy
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/sni-proxy
+User=sni-proxy
+Group=sni-proxy
+
+[Install]
+WantedBy=multi-user.target

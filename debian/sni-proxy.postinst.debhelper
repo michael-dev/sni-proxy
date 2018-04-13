@@ -1,0 +1,26 @@
+# Automatically added by dh_systemd_enable
+# This will only remove masks created by d-s-h on package removal.
+deb-systemd-helper unmask sni-proxy.service >/dev/null || true
+
+# was-enabled defaults to true, so new installations run enable.
+if deb-systemd-helper --quiet was-enabled sni-proxy.service; then
+	# Enables the unit on first installation, creates new
+	# symlinks on upgrades if the unit file has changed.
+	deb-systemd-helper enable sni-proxy.service >/dev/null || true
+else
+	# Update the statefile to add new symlinks (if any), which need to be
+	# cleaned up on purge. Also remove old symlinks.
+	deb-systemd-helper update-state sni-proxy.service >/dev/null || true
+fi
+# End automatically added section
+# Automatically added by dh_installinit
+if [ -x "/etc/init.d/sni-proxy" ]; then
+	update-rc.d sni-proxy defaults >/dev/null
+	invoke-rc.d sni-proxy start || exit $?
+fi
+# End automatically added section
+# Automatically added by dh_makeshlibs
+if [ "$1" = "configure" ]; then
+	ldconfig
+fi
+# End automatically added section

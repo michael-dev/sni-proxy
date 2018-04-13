@@ -1,0 +1,107 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          sni-proxy
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Should-Start:      $network
+# Should-Stop:       $network
+# Default-Start:     2 3 4 5
+# Default-Stop:      1
+# Short-Description: tls sni gateway
+### END INIT INFO
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/bin/sni-proxy
+NAME=sni-proxy
+DESC="sni-proxy Daemon"
+DAEMON_ARGS=""
+_SYSTEMCTL_SKIP_REDIRECT=true
+
+set -e
+
+. /lib/lsb/init-functions
+
+# Reads config file (will override defaults above)
+[ -r /etc/default/sni-proxy ] && . /etc/default/sni-proxy
+
+test -x $DAEMON || exit 0
+
+should_start() {
+	if [ "$STARTSNIPROXY" != "true" ] && [ "$STARTSNIPROXY" != "YES" ]; then
+		log_warning_msg "STARTSNIPROXY is set to false in /etc/default/sni-proxy"
+		log_warning_msg "$DAEMON not starting"
+		exit 0
+	fi
+	# we need permission to write to the pid file
+	touch /var/run/$NAME.pid
+}
+
+case "$1" in
+  start)
+	should_start
+	log_begin_msg "Starting $DESC: $NAME"
+	start-stop-daemon --start --quiet -m -b --pidfile /var/run/$NAME.pid \
+	        --chdir /var/tmp \
+	        --chuid sni-proxy \
+	        --exec $DAEMON -- $DAEMON_ARGS ||
+	{
+	    code=$?
+	    log_warning_msg "$0: start failed with error code $code" >&2
+	    log_end_msg $code
+	    exit $code
+	}
+	sleep 1
+	log_end_msg 0
+	;;
+  stop)
+	log_begin_msg "Stopping $DESC: $NAME"
+	start-stop-daemon --stop --quiet --pidfile /var/run/$NAME.pid \
+		--oknodo --retry 10 ||
+	{
+	    code=$?
+	    log_warning_msg "$0: stop failed with error code $code" >&2
+	    log_end_msg $code
+	    exit $code
+	}
+	rm -f /var/run/$NAME.pid >/dev/null 2>&1
+	log_end_msg 0
+	;;
+  restart|force-reload)
+	#
+	#	If the "reload" option is implemented, move the "force-reload"
+	#	option to the "reload" entry above. If not, "force-reload" is
+	#	just the same as "restart".
+	#
+	log_begin_msg "Restarting $DESC: $NAME"
+	start-stop-daemon --stop --quiet --pidfile /var/run/$NAME.pid \
+		--oknodo --retry 10
+	sleep 1
+	should_start
+	start-stop-daemon --start --quiet -m -b --pidfile /var/run/$NAME.pid \
+                --chdir /var/tmp \
+                --chuid sni-proxy \
+		--exec $DAEMON -- $DAEMON_ARGS ||
+	{
+	    code=$?
+	    rm -f /var/run/$NAME.pid >/dev/null 2>&1
+	    log_warning_msg "$0: restart failed with error code $code" >&2
+	    log_end_msg $code
+	    exit $code
+	}
+	log_end_msg 0
+	;;
+  status)
+	rc=0
+	status_of_proc -p /var/run/$NAME.pid $DAEMON $NAME || rc=$?
+	if [ $rc -ne 0 ]; then
+		exit 3;
+	fi
+	;;
+  *)
+	N=/etc/init.d/$NAME
+	echo "Usage: $N {start|stop|restart|force-reload|status}" >&2
+	exit 1
+	;;
+esac
+
+exit 0
