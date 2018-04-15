@@ -1,3 +1,9 @@
+sni-proxy (20180411+06) unstable; urgency=medium
+
+  * fix memory leak
+
+ -- Michael Braun <michael-dev@fami-braun.de>  Sun, 15 Apr 2018 16:18:39 +0200
+
 sni-proxy (20180411+05) unstable; urgency=medium
 
   * improved config
