@@ -39,6 +39,7 @@
 #include "util.h"
 #include "ringbuf.h"
 #include "sni-private.h"
+#include "defaults.h"
 
 #if defined(__GNUC__)
 #  define _PACKED __attribute__ ((packed))
@@ -269,7 +270,17 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 	int remain = len, ret;
 	unsigned int tlen;
 	const struct ssl_header *sslh;
-	const ucl_object_t *bk = NULL, *sa = NULL;
+	const ucl_object_t *bk = NULL, *elt = NULL;
+	const char *hostname = NULL;
+	unsigned hostlen = 0;
+	int port = default_backend_port;
+	struct addrinfo ai, *res;
+
+	memset(&ai, 0, sizeof(ai));
+
+	ai.ai_family = AF_UNSPEC;
+	ai.ai_socktype = SOCK_STREAM;
+	ai.ai_flags = AI_NUMERICSERV;
 
 	ev_io_stop(ssl->loop, &ssl->io);
 
@@ -332,8 +343,16 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 
 	if (ret == 0) {
 		/* Here we can select a backend */
-		if (ssl->hostname != NULL) {
-			bk = ucl_object_find_keyl(ssl->backends, ssl->hostname, ssl->hostlen);
+		hostname = ssl->hostname;
+		hostlen = ssl->hostlen;
+		while (hostname && hostlen) {
+			bk = ucl_object_find_keyl(ssl->backends, hostname, hostlen);
+			if (bk) break;
+			// (.?)foo.example.org => .example.org;
+			do {
+				hostname++;
+				hostlen--;
+			} while ( hostlen && hostname[0] && hostname[0] != '.');
 		}
 
 		if (bk == NULL) {
@@ -348,10 +367,19 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 			return;
 		}
 		else {
-			sa = ucl_object_find_key(bk, "ai");
+			elt = ucl_object_find_key(bk, "port");
+			if (elt != NULL) {
+				port = ucl_object_toint(elt);
+			}
 
-			if (sa == NULL) {
-				/* Should not happen */
+			elt = ucl_object_find_key(bk, "host");
+			if (elt != NULL) {
+				hostname = ucl_object_tostring(elt);
+			}
+
+			res = NULL;
+			if ((ret = getaddrinfo(hostname, port_to_str(port), &ai, &res)) != 0) {
+				fprintf(stderr, "bad backend: %s:%d: %s\n", ssl->hostname, port, gai_strerror(ret));
 				send_alert(ssl);
 				return;
 			}
@@ -360,7 +388,7 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 			ssl->saved_buf = xmalloc(len);
 			memcpy(ssl->saved_buf, buf, len);
 			ssl->buflen = len;
-			connect_backend(ssl, sa->value.ud);
+			connect_backend(ssl, &ai);
 
 			return;
 		}

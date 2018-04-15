@@ -40,8 +40,7 @@
 #include "ev.h"
 #include "ucl.h"
 #include "util.h"
-
-static const int default_backend_port = 443;
+#include "defaults.h"
 
 int buflen = 16384;
 static int port = 443;
@@ -75,7 +74,7 @@ backends_sane(ucl_object_t *obj)
 	const ucl_object_t *cur, *elt;
 	struct addrinfo ai, *res;
 	int port = default_backend_port, ret;
-	ucl_object_t *be, *ai_obj;
+	ucl_object_t *be;
 
 	memset(&ai, 0, sizeof(ai));
 
@@ -96,23 +95,16 @@ backends_sane(ucl_object_t *obj)
 
 		elt = ucl_object_find_key(cur, "host");
 
-		if (elt == NULL) {
-			return false;
+		if (elt != NULL) {
+			res = NULL;
+			if ((ret = getaddrinfo(ucl_object_tostring(elt), port_to_str(port),
+						&ai, &res)) != 0) {
+				fprintf(stderr, "bad backend: %s:%d: %s\n", ucl_object_tostring(elt),
+						port, gai_strerror(ret));
+				return false;
+			}
 		}
 
-		res = NULL;
-		if ((ret = getaddrinfo(ucl_object_tostring(elt), port_to_str(port),
-				&ai, &res)) != 0) {
-			fprintf(stderr, "bad backend: %s:%d: %s\n", ucl_object_tostring(elt),
-					port, gai_strerror(ret));
-			return false;
-		}
-
-		/* Insert addrinfo as userdata */
-		ai_obj = ucl_object_typed_new(UCL_USERDATA);
-		ai_obj->value.ud = res;
-
-		ucl_object_insert_key(be, ai_obj, "ai", 0, false);
 		ucl_object_unref(be);
 	}
 
