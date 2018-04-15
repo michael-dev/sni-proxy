@@ -349,7 +349,9 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 			char *key = strndup(hostname, hostlen);
 			if (!key) break;
 			if (key[0] == '.') key[0] = '/';
-			bk = ucl_object_find_keyl(ssl->backends, hostname, hostlen);
+			// fprintf(stderr, "try key %s for hostname: %s\n", key, hostname);
+			bk = ucl_object_find_keyl(ssl->backends, key, hostlen);
+			// if (bk) fprintf(stderr, "found key %s for hostname %s for ssl hostname %s\n", key, hostname, ssl->hostname);
 			if (bk) break;
 			// (.?)foo.example.org => .example.org;
 			do {
@@ -375,6 +377,7 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 				port = ucl_object_toint(elt);
 			}
 
+			hostname = ssl->hostname;
 			elt = ucl_object_find_key(bk, "host");
 			if (elt != NULL) {
 				hostname = ucl_object_tostring(elt);
@@ -382,7 +385,7 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 
 			res = NULL;
 			if ((ret = getaddrinfo(hostname, port_to_str(port), &ai, &res)) != 0) {
-				fprintf(stderr, "bad backend: %s:%d: %s\n", ssl->hostname, port, gai_strerror(ret));
+				fprintf(stderr, "bad backend: %s:%d: connect to %s %s\n", ssl->hostname, port, hostname, gai_strerror(ret));
 				send_alert(ssl);
 				return;
 			}
@@ -391,7 +394,7 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 			ssl->saved_buf = xmalloc(len);
 			memcpy(ssl->saved_buf, buf, len);
 			ssl->buflen = len;
-			connect_backend(ssl, &ai);
+			connect_backend(ssl, res);
 
 			return;
 		}
