@@ -353,6 +353,7 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 			// fprintf(stderr, "try key %s for hostname: %s\n", key, hostname);
 			bk = ucl_object_find_keyl(ssl->backends, key, hostlen);
 			// if (bk) fprintf(stderr, "found key %s for hostname %s for ssl hostname %s\n", key, hostname, ssl->hostname);
+			free(key); key = NULL;
 			if (bk) break;
 			// (.?)foo.example.org => .example.org;
 			do {
