@@ -346,6 +346,9 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 		hostname = ssl->hostname;
 		hostlen = ssl->hostlen;
 		while (hostname && hostlen) {
+			char *key = strndup(hostname, hostlen);
+			if (!key) break;
+			if (key[0] == '.') key[0] = '/';
 			bk = ucl_object_find_keyl(ssl->backends, hostname, hostlen);
 			if (bk) break;
 			// (.?)foo.example.org => .example.org;
