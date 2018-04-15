@@ -1,3 +1,10 @@
+sni-proxy (20180411+05) unstable; urgency=medium
+
+  * improved config
+  * do not cache getaddrinfo
+
+ -- Michael Braun <michael-dev@fami-braun.de>  Sun, 15 Apr 2018 13:24:14 +0200
+
 sni-proxy (20180411+04) unstable; urgency=low
 
   * Initial Release.
