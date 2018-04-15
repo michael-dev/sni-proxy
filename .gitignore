@@ -1,3 +1,4 @@
+debian/filedebian/filess
 ucl/*
 *.o
 Makefile.in
@@ -6,7 +7,9 @@ aclocal.m4
 ar-lib
 compile
 config.guess
-config.log
+*.log
+*.substvars
+*.debhelper
 config.status
 config.sub
 configure

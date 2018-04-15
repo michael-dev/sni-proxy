@@ -254,6 +254,7 @@ parse_extension(struct ssl_session *ssl, const unsigned char *pos, int remain)
 		}
 
 		hlen = int_2byte_be(sni->hlen);
+		free(ssl->hostname);
 		ssl->hostname = xmalloc(hlen + 1);
 		memcpy(ssl->hostname, sni->host, hlen);
 		ssl->hostlen = hlen;
@@ -391,6 +392,7 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 			}
 
 			ssl->state = ssl_state_backend_selected;
+			free(ssl->saved_buf); // avoid memory leak with malcious client
 			ssl->saved_buf = xmalloc(len);
 			memcpy(ssl->saved_buf, buf, len);
 			ssl->buflen = len;
