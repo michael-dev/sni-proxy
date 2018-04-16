@@ -103,6 +103,7 @@ backends_sane(ucl_object_t *obj)
 						port, gai_strerror(ret));
 				return false;
 			}
+			freeadrinfo(res); res = NULL;
 		}
 
 		ucl_object_unref(be);

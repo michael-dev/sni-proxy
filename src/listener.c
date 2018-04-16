@@ -390,6 +390,7 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 
 			ssl->state = ssl_state_backend_selected;
 			connect_backend(ssl, res);
+			freeaddrinfo(res); res = NULL;
 
 			return 0;
 		}
