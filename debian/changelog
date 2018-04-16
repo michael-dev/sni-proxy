@@ -1,3 +1,9 @@
+sni-proxy (20180411+10) unstable; urgency=medium
+
+  * use async getaddr
+
+ -- Michael Braun <michael-dev@fami-braun.de>  Mon, 16 Apr 2018 07:57:15 +0200
+
 sni-proxy (20180411+09) unstable; urgency=medium
 
   * remove racy behaviour
