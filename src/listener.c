@@ -416,7 +416,7 @@ greet_cb(EV_P_ ev_io *w, int revents)
 	ev_timer_stop(loop, &ssl->tm);
 	r = read(w->fd, buf, sizeof (buf));
 
-	if (r <= 0) {
+	if (r <= 0 || ssl->state != ssl_state_init) {
 		terminate_session(ssl);
 	}
 	else {
