@@ -1,3 +1,9 @@
+sni-proxy (20180411+08) unstable; urgency=medium
+
+  * check state
+
+ -- Michael Braun <michael-dev@fami-braun.de>  Mon, 16 Apr 2018 05:36:55 +0200
+
 sni-proxy (20180411+07) unstable; urgency=medium
 
   * fix leak

@@ -1,4 +1,4 @@
-debian/filedebian/filess
+debian/files
 ucl/*
 *.o
 Makefile.in
