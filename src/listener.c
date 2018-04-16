@@ -264,7 +264,7 @@ parse_extension(struct ssl_session *ssl, const unsigned char *pos, int remain)
 	return tlen + 4;
 }
 
-static void
+static int
 parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 {
 	const unsigned char *p = buf;
@@ -283,11 +283,8 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 	ai.ai_socktype = SOCK_STREAM;
 	ai.ai_flags = AI_NUMERICSERV;
 
-	ev_io_stop(ssl->loop, &ssl->io);
-
 	if (len <= sizeof(struct ssl_header)) {
-		send_alert(ssl);
-		return;
+		goto short;
 	}
 
 	sslh = (const struct ssl_header *)p;
@@ -307,7 +304,7 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 	/* Session id */
 	tlen = *p;
 	if (tlen >= remain + 4) {
-		goto err;
+		goto short;
 	}
 	p = p + tlen + 1;
 	remain -= tlen + 1;
@@ -315,7 +312,7 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 	/* Cipher suite */
 	tlen = int_2byte_be(p);
 	if (tlen >= remain + 4) {
-		goto err;
+		goto short;
 	}
 	p = p + tlen + 2;
 	remain -= tlen + 2;
@@ -323,7 +320,7 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 	/* Compression methods */
 	tlen = *p;
 	if (tlen >= remain + 4) {
-		goto err;
+		goto short;
 	}
 	p = p + tlen + 1;
 	remain -= tlen + 1;
@@ -331,7 +328,7 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 	/* Now extensions */
 	tlen = int_2byte_be(p);
 	if (tlen > remain) {
-		goto err;
+		goto short;
 	}
 
 	p += 2;
@@ -348,13 +345,14 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 		hostlen = ssl->hostlen;
 		while (hostname && hostlen) {
 			char *key = strndup(hostname, hostlen);
-			if (!key) break;
+			if (!key)
+				goto err;
 			if (key[0] == '.') key[0] = '/';
-			// fprintf(stderr, "try key %s for hostname: %s\n", key, hostname);
 			bk = ucl_object_find_keyl(ssl->backends, key, hostlen);
-			// if (bk) fprintf(stderr, "found key %s for hostname %s for ssl hostname %s\n", key, hostname, ssl->hostname);
 			free(key); key = NULL;
-			if (bk) break;
+			if (bk)
+				break;
+
 			// (.?)foo.example.org => .example.org;
 			do {
 				hostname++;
@@ -370,8 +368,7 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 		if (bk == NULL) {
 			/* Cowardly give up */
 			fprintf(stderr, "cannot found hostname: %s\n", ssl->hostname);
-			send_alert(ssl);
-			return;
+			goto err;
 		}
 		else {
 			elt = ucl_object_find_key(bk, "port");
@@ -388,39 +385,51 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 			res = NULL;
 			if ((ret = getaddrinfo(hostname, port_to_str(port), &ai, &res)) != 0) {
 				fprintf(stderr, "bad backend: %s:%d: connect to %s %s\n", ssl->hostname, port, hostname, gai_strerror(ret));
-				send_alert(ssl);
-				return;
+				goto err;
 			}
 
 			ssl->state = ssl_state_backend_selected;
-			free(ssl->saved_buf); // avoid memory leak with malcious client
-			ssl->saved_buf = xmalloc(len);
-			memcpy(ssl->saved_buf, buf, len);
-			ssl->buflen = len;
 			connect_backend(ssl, res);
 
-			return;
+			return 0;
 		}
 	}
 err:
 	send_alert(ssl);
+	return -1;
+short:
+	return 1;
 }
 
 static void
 greet_cb(EV_P_ ev_io *w, int revents)
 {
 	unsigned char buf[8192];
-	int r;
+	int r, len;
 	struct ssl_session *ssl = w->data;
 
 	ev_timer_stop(loop, &ssl->tm);
-	r = read(w->fd, buf, sizeof (buf));
+	ev_io_stop(loop, &ssl->io);
 
-	if (r <= 0 || ssl->state != ssl_state_init) {
+	r = read(w->fd, buf + ssl->buflen, sizeof (buf) - ssl->buflen);
+	if (r < 0 || ssl->state != ssl_state_init) {
 		terminate_session(ssl);
+		return;
 	}
-	else {
-		parse_ssl_greeting(ssl, buf, r);
+
+	len = ssl->buflen + r;
+	if (ssl->buflen > 0)
+		memcpy(buf, ssl->saved_buf, ssl->buflen);
+	free(ssl->saved_buf); // avoid memory leak with malcious client
+	ssl->saved_buf = xmalloc(len);
+	memcpy(ssl->saved_buf, buf, len);
+	ssl->buflen = len;
+
+	r = parse_ssl_greeting(ssl, buf, r);
+	if (r == 1) {
+		// short data, continue reading
+		ev_io_start(loop, &ssl->io);
+		ev_timer_start(loop, &ssl->tm);
 	}
 }
 
@@ -567,12 +576,12 @@ start_listen(struct ev_loop *loop, int port, const ucl_object_t *backends)
 			if (i == 1 && cur_ai->ai_family == AF_INET6) continue;
 
 			sock = listen_on(cur_ai->ai_addr, cur_ai->ai_addrlen);
-	
+
 			if (sock == -1) {
 				fprintf(stderr, "socket listen: %s\n", strerror(errno));
 				continue;
 			}
-	
+
 			watcher = xmalloc0(sizeof(*watcher));
 			watcher->data = (void *)backends;
 			ev_io_init(watcher, accept_cb, sock, EV_READ);
