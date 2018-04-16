@@ -40,6 +40,7 @@
 #include "ringbuf.h"
 #include "sni-private.h"
 #include "defaults.h"
+#include "getaddr.h"
 
 #if defined(__GNUC__)
 #  define _PACKED __attribute__ ((packed))
@@ -264,6 +265,19 @@ parse_extension(struct ssl_session *ssl, const unsigned char *pos, int remain)
 	return tlen + 4;
 }
 
+static void dns_cb(void *data, struct addrinfo *res, int ret) {
+	struct ssl_session *ssl = data;
+
+	if (!res) {
+		fprintf(stderr, "bad backend for %s: %s\n", ssl->hostname, gai_strerror(ret));
+		send_alert(ssl);
+		return;
+	}
+
+	ssl->state = ssl_state_backend_connecting;
+	connect_backend(ssl, res);
+}
+
 static int
 parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 {
@@ -275,13 +289,6 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 	const char *hostname = NULL;
 	unsigned hostlen = 0;
 	int port = default_backend_port;
-	struct addrinfo ai, *res;
-
-	memset(&ai, 0, sizeof(ai));
-
-	ai.ai_family = AF_UNSPEC;
-	ai.ai_socktype = SOCK_STREAM;
-	ai.ai_flags = AI_NUMERICSERV;
 
 	if (len <= sizeof(struct ssl_header)) {
 		goto shrt;
@@ -292,9 +299,9 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 
 	/* Not an SSL packet */
 	if (memcmp(&sslh->tls_type, tls_magic, sizeof(tls_magic)) != 0 ||
-		sslh->type != tls_greeting ||
-		int_2byte_be(sslh->len) != len - 5 ||
-		int_3byte_be(sslh->greeting_len) != len - 5 - 4) {
+			sslh->type != tls_greeting ||
+			int_2byte_be(sslh->len) != len - 5 ||
+			int_3byte_be(sslh->greeting_len) != len - 5 - 4) {
 		goto err;
 	}
 
@@ -382,15 +389,8 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 				hostname = ucl_object_tostring(elt);
 			}
 
-			res = NULL;
-			if ((ret = getaddrinfo(hostname, port_to_str(port), &ai, &res)) != 0) {
-				fprintf(stderr, "bad backend: %s:%d: connect to %s %s\n", ssl->hostname, port, hostname, gai_strerror(ret));
-				goto err;
-			}
-
 			ssl->state = ssl_state_backend_selected;
-			connect_backend(ssl, res);
-			freeaddrinfo(res); res = NULL;
+			send_request(hostname, port_to_str(port), SOCK_STREAM, AF_UNSPEC, AI_NUMERICSERV, dns_cb, ssl);
 
 			return 0;
 		}
@@ -592,6 +592,7 @@ start_listen(struct ev_loop *loop, int port, const ucl_object_t *backends)
 
 		if (ret) break;
 	}
+	freeaddrinfo(res);
 
 	return ret;
 }

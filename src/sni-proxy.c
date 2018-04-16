@@ -41,6 +41,7 @@
 #include "ucl.h"
 #include "util.h"
 #include "defaults.h"
+#include "getaddr.h"
 
 int buflen = 16384;
 static int port = 443;
@@ -103,7 +104,7 @@ backends_sane(ucl_object_t *obj)
 						port, gai_strerror(ret));
 				return false;
 			}
-			freeadrinfo(res); res = NULL;
+			freeaddrinfo(res); res = NULL;
 		}
 
 		ucl_object_unref(be);
@@ -170,6 +171,12 @@ main(int argc, char **argv) {
 	signal(SIGPIPE, SIG_IGN);
 
 	if (!start_listen(loop, port, backends)) {
+		fprintf(stderr, "cannot start listening\n");
+		exit(EXIT_FAILURE);
+	}
+
+	if (!start_signalfd(loop)) {
+		fprintf(stderr, "cannot initialize signalfd\n");
 		exit(EXIT_FAILURE);
 	}
 

@@ -44,6 +44,7 @@ struct ssl_session {
 		ssl_state_alert,
 		ssl_state_alert_sent,
 		ssl_state_backend_selected,
+		ssl_state_backend_connecting,
 		ssl_state_backend_ready,
 		ssl_state_backend_greeting,
 		ssl_state_proxy,
