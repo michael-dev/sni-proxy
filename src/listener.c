@@ -284,7 +284,7 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 	ai.ai_flags = AI_NUMERICSERV;
 
 	if (len <= sizeof(struct ssl_header)) {
-		goto short;
+		goto shrt;
 	}
 
 	sslh = (const struct ssl_header *)p;
@@ -304,7 +304,7 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 	/* Session id */
 	tlen = *p;
 	if (tlen >= remain + 4) {
-		goto short;
+		goto shrt;
 	}
 	p = p + tlen + 1;
 	remain -= tlen + 1;
@@ -312,7 +312,7 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 	/* Cipher suite */
 	tlen = int_2byte_be(p);
 	if (tlen >= remain + 4) {
-		goto short;
+		goto shrt;
 	}
 	p = p + tlen + 2;
 	remain -= tlen + 2;
@@ -320,7 +320,7 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 	/* Compression methods */
 	tlen = *p;
 	if (tlen >= remain + 4) {
-		goto short;
+		goto shrt;
 	}
 	p = p + tlen + 1;
 	remain -= tlen + 1;
@@ -328,7 +328,7 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 	/* Now extensions */
 	tlen = int_2byte_be(p);
 	if (tlen > remain) {
-		goto short;
+		goto shrt;
 	}
 
 	p += 2;
@@ -397,7 +397,7 @@ parse_ssl_greeting(struct ssl_session *ssl, const unsigned char *buf, int len)
 err:
 	send_alert(ssl);
 	return -1;
-short:
+shrt:
 	return 1;
 }
 

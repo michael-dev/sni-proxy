@@ -1,3 +1,9 @@
+sni-proxy (20180411+09) unstable; urgency=medium
+
+  * remove racy behaviour
+
+ -- Michael Braun <michael-dev@fami-braun.de>  Mon, 16 Apr 2018 06:02:23 +0200
+
 sni-proxy (20180411+08) unstable; urgency=medium
 
   * check state
