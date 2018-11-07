@@ -28,5 +28,7 @@ include /usr/share/dpkg/default.mk
 #	-DCMAKE_LIBRARY_PATH=$(DEB_HOST_MULTIARCH)
 
 
-
+.PHONY: override_dh_strip
+override_dh_strip:
+	dh_strip --dbg-package=sni-proxy-dbg
 

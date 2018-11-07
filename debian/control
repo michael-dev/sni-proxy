@@ -13,3 +13,11 @@ Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: <insert up to 60 chars description>
  <insert long description, indented with spaces>
+
+Package: sni-proxy-dbg
+Architecture: any
+Section: debug
+Priority: extra
+Depends: ${shlibs:Depends}, ${misc:Depends}, sni-proxy (= ${binary:Version})
+Description: <insert up to 60 chars description>
+ <insert long description, indented with spaces>

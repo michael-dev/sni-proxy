@@ -1,3 +1,15 @@
+sni-proxy (20180411+13) unstable; urgency=medium
+
+  * fix list of installed files
+
+ -- Michael Braun <michael-dev@fami-braun.de>  Wed, 07 Nov 2018 05:59:40 +0100
+
+sni-proxy (20180411+12) unstable; urgency=medium
+
+  * add debug symbols, automatic debug symbols not yet in jessie
+
+ -- Michael Braun <michael-dev@fami-braun.de>  Wed, 07 Nov 2018 05:20:03 +0100
+
 sni-proxy (20180411+11) unstable; urgency=medium
 
   * force automatic restart (likely not needed)

@@ -22,3 +22,9 @@ src/.libs/
 src/sni-proxy
 test-driver
 debian/sni-proxy
+autom4te.cache/
+debian/autoreconf.after
+debian/autoreconf.before
+debian/debhelper-build-stamp
+debian/sni-proxy-dbg/
+debian/tmp/
