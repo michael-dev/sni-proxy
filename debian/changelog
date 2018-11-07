@@ -1,3 +1,9 @@
+sni-proxy (20180411+14) unstable; urgency=medium
+
+  * fix non-blocking and check return of write call
+
+ -- Michael Braun <michael-dev@fami-braun.de>  Wed, 07 Nov 2018 06:27:36 +0100
+
 sni-proxy (20180411+13) unstable; urgency=medium
 
   * fix list of installed files
